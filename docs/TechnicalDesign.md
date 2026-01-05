@@ -206,4 +206,4 @@ The backend is structured as a clean Web API with service-layer isolation.
 ## 10. Error Handling & Edge Cases
 - **Session Expiration**: If the user attempts an action on an expired session, the API returns `404 Session Not Found`. The frontend redirects the user to the Upload page with a notification.
 - **Concurrent Access**: Since sessions are stateless and ID-based, basic concurrency is handled by version checking. If `clientVersion != serverVersion` on save, the server rejects the update to prevent overwriting (Optimistic Concurrency Control).
-- **Invalid File Type**: The Upload endpoint strictly validates MIME types to reject non-Excel files.
+- **Invalid File Type/Empty File**: The Upload endpoint strictly validates MIME types and file size to reject non-Excel or empty files.
