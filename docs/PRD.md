@@ -15,9 +15,19 @@ To provide a secure, full-stack (C# & Angular) solution that transforms Excel te
 
 - **Structure Parsing**: The system must accept `.xlsx` files and extract row/column metadata to generate a web-based grid layout.
 
+- **Merged Cell Support**: Record and preserve merged cell information from the source Excel file, including:
+  - Merged cell ranges (start/end row and column)
+  - Display merged cells correctly in the web-based grid
+  - Maintain merged cell structure during data entry and export
+
 - **Logic Mapping**: Detect and preserve Excel-defined data types (numbers, dates, text) and cell-to-cell formulas.
 
 - **UI Hardening**: Automatically lock cells containing formulas while enabling input for data-entry fields.
+
+- **Column Editability Configuration**: Support column-level editability rules defined in the source Excel file:
+  - Identify which columns are editable vs. ineditable based on Excel metadata
+  - Enforce these rules in the web interface to prevent unauthorized modifications
+  - Provide visual indicators to distinguish editable from ineditable columns
 
 ### 2.2 Controlled Data Entry Interface
 
@@ -26,6 +36,23 @@ To provide a secure, full-stack (C# & Angular) solution that transforms Excel te
 - **Real-time Validation**: Implement visual indicators for data that violates pre-defined ranges or types (e.g., highlighting out-of-spec values in red).
 
 - **Formula Synchronization**: Re-calculate dependent values instantly upon any user input within the browser.
+
+- **Cell Metadata Inspector**: When a user selects a cell, display:
+  - The cell's data type (text, number, date, boolean, etc.)
+  - The formula definition (if the cell contains a formula)
+  - This information should be shown in a dedicated panel or tooltip for easy reference
+
+- **Data Manipulation Controls**: Provide user-friendly controls for managing changes:
+  - **Save**: Commit current changes and create a new version snapshot
+  - **Cancel**: Discard all unsaved changes and revert to the last saved state
+  - **Reverse/Undo**: Step backward through the change history to restore previous versions
+  - Clear visual feedback on the current save state and available actions
+
+- **Unsaved Changes Visualization**: Provide clear visual indicators for modified data:
+  - Cells with unsaved changes must be highlighted with a distinct color (e.g., light yellow or amber background)
+  - This visual differentiation helps users quickly identify which cells have been modified since the last save
+  - The highlighting should be removed once changes are saved or cancelled
+  - Ensure the color scheme maintains accessibility standards and doesn't interfere with validation indicators
 
 ### 2.3 Stateless Audit Trail (In-Memory)
 
@@ -58,6 +85,6 @@ To provide a secure, full-stack (C# & Angular) solution that transforms Excel te
 
 ---
 
-**Document Version**: 3.0  
+**Document Version**: 4.0  
 **Last Updated**: 2026-01-05  
 **Status**: Active Development
