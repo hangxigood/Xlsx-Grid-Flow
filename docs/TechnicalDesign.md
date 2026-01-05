@@ -10,6 +10,7 @@ The primary object representing the parsed Excel sheet and the current grid stat
 
 ```typescript
 type DataType = 'text' | 'number' | 'date' | 'boolean' | 'formula';
+type CellValue = string | number | boolean | null;
 
 type MergedCell = {
   startRow: number;
@@ -18,11 +19,17 @@ type MergedCell = {
   endCol: number;
 };
 
+// Represents a single row in the grid with dynamic columns
+interface GridRow {
+  rowId: number;             // 1-based index matching the original Excel row number
+  [key: string]: CellValue;  // Dynamic fields matching ColumnDef.field
+}
+
 interface Template {
   id: string;              // Unique identifier for the session
   filename: string;        // Original .xlsx filename
   columnDefs: ColumnDef[]; // AG-Grid column configurations
-  rowData: any[];          // Sheet data (array of objects). Formulas are stored as strings starting with '='
+  rowData: GridRow[];      // Structured sheet data
   mergedCells: MergedCell[]; // List of ranges to apply rowSpan/colSpan
 }
 ```
@@ -47,14 +54,14 @@ interface AuditLogEntry {
   version: number;        // The version identifier this change belongs to
   timestamp: string;      // ISO 8601
   cellReference: string;  // e.g., "B4"
-  oldValue: any;
-  newValue: any;
+  oldValue: CellValue;
+  newValue: CellValue;
 }
 
 interface SessionState {
   sessionId: string;
   version: number;        // Incrementing revision number
-  currentSnapshot: any[]; // Latest saved state
+  currentSnapshot: GridRow[]; // Latest saved state
   changeLog: AuditLogEntry[];
 }
 ```
