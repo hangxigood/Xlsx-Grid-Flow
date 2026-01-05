@@ -3,59 +3,61 @@
 
 ---
 
-## 1. Executive Summary
+## 1. Project Purpose
 
-Traditional industries often rely on Excel for record-keeping, which lacks data integrity and UI control. This project provides a **"no-install" solution** that instantly transforms any Excel template into a controlled, browser-based data entry interface, ensuring data consistency and professional reporting without manual coding.
-
----
-
-## 2. Target Audience
-
-- **Process Engineers**: Who need to digitize paper forms quickly
-- **Quality Controllers**: Who require strict validation on data input
-- **Developers**: Looking for a proof-of-concept for dynamic UI generation
+To provide a secure, full-stack (C# & Angular) solution that transforms Excel templates into a controlled, browser-based data entry interface. The system focuses on **Data Integrity** by generating an automated **Audit Trail** and professional PDF reports without requiring a persistent database.
 
 ---
 
-## 3. Core User Flow
+## 2. Scope of Requirements
 
-1. **Upload**: User drops an existing Excel `.xlsx` file
-2. **Generate**: The system interprets the structure and logic (types, formulas, headers)
-3. **Interact**: The user fills in the data within a high-performance interactive grid
-4. **Export**: The user prints the completed record to a formatted PDF
+### 2.1 Dynamic Template Extraction
+
+- **Structure Parsing**: The system must accept `.xlsx` files and extract row/column metadata to generate a web-based grid layout.
+
+- **Logic Mapping**: Detect and preserve Excel-defined data types (numbers, dates, text) and cell-to-cell formulas.
+
+- **UI Hardening**: Automatically lock cells containing formulas while enabling input for data-entry fields.
+
+### 2.2 Controlled Data Entry Interface
+
+- **High-Performance Grid**: Render the extracted schema into a responsive, interactive table.
+
+- **Real-time Validation**: Implement visual indicators for data that violates pre-defined ranges or types (e.g., highlighting out-of-spec values in red).
+
+- **Formula Synchronization**: Re-calculate dependent values instantly upon any user input within the browser.
+
+### 2.3 Stateless Audit Trail (In-Memory)
+
+- **Baseline Versioning**: Upon initial upload, the system must store a "Version 0" snapshot in the server's memory.
+
+- **Difference Calculation (Diffing)**: Every time a user saves their progress, the system must compare the new data against the previous version to identify changes.
+
+- **Change Logging**: Automatically capture the timestamp, field location, old value, and new value for every modification.
+
+- **History Retrieval**: Provide a dedicated view or panel for users to fetch and review the accumulated change logs.
+
+### 2.4 Document Generation
+
+- **Data-Audit Merge**: Combine the current grid state and the historical audit logs into a single structured report.
+
+- **Professional PDF Export**: Generate a non-editable PDF document featuring:
+  - The final data table
+  - A chronological Audit Trail appendix
+  - Document metadata (original filename, export time)
 
 ---
 
-## 4. Key Functional Requirements
+## 3. Non-Functional Requirements
 
-### 4.1 Schema Extraction (Excel to Logic)
+- **Privacy by Design**: No data shall be persisted in a database; all session data resides in volatile memory and is purged upon session expiry.
 
-- **Structure Mapping**: Automatically detect column headers and data rows
-- **Data Type Inference**: Distinguish between text, numeric, date, and dropdown selections based on Excel formatting
-- **Logic Extraction**: Recognize cell relationships (e.g., Column C = Column A + Column B) and maintain these calculations in the live grid
+- **High Fidelity**: The web-based grid must accurately reflect the visual and logical intent of the source Excel file.
 
-### 4.2 Controlled Data Entry (The Interactive Grid)
-
-- **Real-time Validation**: Visual cues (e.g., red highlighting) when data entered violates predefined ranges or types
-- **Dynamic Calculation**: Instant updates of dependent cells whenever an input value changes
-- **UI Hardening**: Locking "formula-only" cells to prevent accidental modification by the operator
-
-### 4.3 Output & Persistence
-
-- **Stateless Operation**: No login required; data is processed locally in the browser to ensure privacy
-- **Professional Printing**: A "Print-to-PDF" function that generates a clean, document-style report, stripping away web UI elements (buttons, menus) to focus on the data
-- **Schema Preview**: A side-by-side view showing the underlying JSON configuration that powers the grid
+- **Audit Transparency**: All changes must be traceable from the moment of upload to the moment of export.
 
 ---
 
-## 5. Success Metrics
-
-- **Zero Hardcoding**: No manual UI adjustments needed after uploading a valid Excel file
-- **Fidelity**: The web grid should mirror the visual intent and logic of the original spreadsheet
-- **Speed**: Transformation from file upload to interactive grid in under 2 seconds
-
----
-
-**Document Version**: 2.0  
+**Document Version**: 3.0  
 **Last Updated**: 2026-01-05  
 **Status**: Active Development
