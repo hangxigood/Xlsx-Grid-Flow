@@ -45,7 +45,10 @@ To provide a secure, full-stack (C# & Angular) solution that transforms Excel te
 - **Data Manipulation Controls**: Provide user-friendly controls for managing changes:
   - **Save**: Commit current changes and create a new version snapshot
   - **Cancel**: Discard all unsaved changes and revert to the last saved state
-  - **Reverse/Undo**: Step backward through the change history to restore previous versions
+  - **History & Rollback**:
+    - Users can view a list of all historical versions (Audit Logs)
+    - Selecting a version previews the grid state at that point in time and displays the specific changes (old value vs. new value) for that version
+    - Users can confirm to "Rollback" the current session to that specific version
   - Clear visual feedback on the current save state and available actions
 
 - **Unsaved Changes Visualization**: Provide clear visual indicators for modified data:
