@@ -1,7 +1,24 @@
 # Technical Design Document: Xlsx-Grid-Flow
 
 ## 1. Introduction
-This document outlines the technical architecture and data schema for **Xlsx-Grid-Flow**, a secure, full-stack solution. The system leverages an **Angular 18+** frontend for the interactive grid (AG-Grid) and a **.NET Core (C#)** backend for stateless session management and document generation.
+This document outlines the technical architecture and data schema for **Xlsx-Grid-Flow**, a secure, full-stack solution. The system leverages an **Angular 18+** frontend with **TailwindCSS** for styling and **AG-Grid** for the interactive grid interface, alongside a **.NET Core (C#)** backend for stateless session management and document generation.
+
+### 1.1 Frontend Architecture
+The application is built as a **Single Page Application (SPA)** with the following characteristics:
+- **Framework**: Angular 18+ with standalone components
+- **Styling**: TailwindCSS for utility-first, responsive design
+- **Grid Library**: AG-Grid Community for high-performance data grid
+- **Layout**: Single-page layout with two main sections:
+  - **Upload Section**: File upload interface with drag-drop support and example template download
+  - **Grid Section**: Interactive data grid that displays example data by default
+
+### 1.2 TailwindCSS Configuration
+TailwindCSS is integrated into the Angular project with the following setup:
+- **Installation**: `tailwindcss`, `postcss`, `autoprefixer` as dev dependencies
+- **Configuration File**: `tailwind.config.js` configured to scan Angular component files
+- **Content Paths**: Includes `src/**/*.{html,ts}` to detect utility classes
+- **Custom Theme**: Extended with project-specific colors, spacing, and component styles
+- **JIT Mode**: Just-In-Time compilation enabled for optimal build performance
 
 ## 2. Core Data Models
 
@@ -26,8 +43,8 @@ interface GridRow {
 }
 
 interface Template {
-  id: string;              // Unique identifier for the session
-  filename: string;        // Original .xlsx filename
+  id: string;              // Unique identifier for the session (use 'example' for demo data)
+  filename: string;        // Original .xlsx filename (use 'Example Template.xlsx' for demo)
   columnDefs: ColumnDef[]; // AG-Grid column configurations
   rowData: GridRow[];      // Structured sheet data
   mergedCells: MergedCell[]; // List of ranges to apply rowSpan/colSpan
@@ -116,6 +133,8 @@ The system parses the string values in Row 1 to determine column logic.
 
 ### 4.3 State Management (Stateless Flow)
 The application operates in-memory to maintain data privacy.
+- **Initial Load**: Application loads with pre-configured example data to demonstrate functionality
+- **Upload**: User can upload a new `.xlsx` file, which replaces the example data with parsed template data
 - **Save**: Submits current state to backend. Backend validates, generates a new "Snapshot" (Version N+1), and records differences.
 - **Cancel**: Re-fetches the last saved Snapshot from the backend, discarding local changes.
 - **History & Rollback**:
@@ -123,7 +142,37 @@ The application operates in-memory to maintain data privacy.
   - **Preview**: UI allows the user to click a version to load that historical data into the grid (read-only mode).
   - **Rollback**: Confirmed "Rollback" calls `/api/session/revert/{version}`. This creates a **new version** (N+1) that matches the data of the target historical version, ensuring the rollback event itself is audited.
 
+### 4.4 Example Data Configuration
+The application includes hardcoded example data to provide immediate interaction:
+- **Location**: Defined in a TypeScript constant file (e.g., `src/app/config/example-data.ts`)
+- **Structure**: Follows the same `Template` schema with sample `columnDefs`, `rowData`, and `mergedCells`
+- **Purpose**: Demonstrates all key features (editable/readonly columns, formulas, validation, merged cells)
+- **User Flow**: Users can interact with example data, then upload their own file to replace it
+
 ## 5. UI/UX Specifications
+
+### 5.1 TailwindCSS Styling Guidelines
+- **Color Scheme**: Use Tailwind's color palette with custom extensions for brand colors
+- **Spacing**: Consistent use of Tailwind spacing utilities (p-*, m-*, gap-*)
+- **Responsive Design**: Mobile-first approach using Tailwind's responsive prefixes (sm:, md:, lg:, xl:)
+- **Component Classes**: Combine utilities for reusable component patterns
+- **Dark Mode**: Optional dark mode support using Tailwind's `dark:` variant
+
+### 5.2 Layout Structure
+The single-page layout is organized as follows:
+- **Header**: Application title, session info, and primary action buttons (styled with Tailwind)
+- **Main Content Area**: Split into two sections:
+  - **Upload Section**: 
+    - Drag-drop zone with visual feedback (border-dashed, hover states)
+    - "Download Example Template" button
+    - File validation messages
+  - **Grid Section**: 
+    - Full-width AG-Grid instance
+    - Toolbar with Save/Cancel/Export buttons
+    - Metadata inspector panel (collapsible sidebar)
+    - Audit history panel (collapsible sidebar)
+
+### 5.3 Visual Elements
 - **Header Icons**: Display small icons next to `headerName` to indicate type (e.g., 📅 for date, ƒ for formula).
 - **Metadata Inspector Panel**: A dedicated side panel (or detailed tooltip) displaying:
   - Cell Reference (e.g., C4)
@@ -173,24 +222,38 @@ The system generates a high-fidelity PDF server-side to ensure formatting consis
 ## 9. Project Structure
 
 ### 9.1 Frontend (Angular)
-The frontend is organized to separate concerns between UI components and data communication.
+The frontend is organized as a single-page application with clear separation of concerns.
 
 `src/app/`
 - **components/**
+  - `main-layout/`: Root component orchestrating the SPA layout.
+    - `main-layout.component.ts`: Manages the overall page structure, coordinates upload and grid sections
+    - `main-layout.component.html`: Contains the single-page layout with TailwindCSS classes
+  - `upload/`: File upload interface.
+    - `upload.component.ts`: Handles file selection, drag-drop, validation, and example template download
+    - Styled with TailwindCSS utilities for drag-drop zones and buttons
   - `grid-wrapper/`: The core editing interface.
-    - `grid-wrapper.component.ts`: Initializes AG-Grid, handles cell value changes, applies validation styling.
-  - `toolbar/`: Top-level controls.
-    - `toolbar.component.ts`: Contains logic for "Save" and "Cancel" actions.
+    - `grid-wrapper.component.ts`: Initializes AG-Grid, handles cell value changes, applies validation styling
+    - Receives data from parent (example data or uploaded template data)
+  - `toolbar/`: Grid action controls.
+    - `toolbar.component.ts`: Contains logic for "Save", "Cancel", and "Export" actions
+    - Styled with TailwindCSS button utilities
   - `audit-panel/`: History visualization.
-    - `audit-panel.component.ts`: Displays versions list and handles Rollback actions.
+    - `audit-panel.component.ts`: Displays versions list and handles Rollback actions
+    - Can be a sidebar or modal, styled with TailwindCSS
   - `metadata-inspector/`: Cell details.
-    - `metadata-inspector.component.ts`: Displays active cell's properties (formula, type, value).
+    - `metadata-inspector.component.ts`: Displays active cell's properties (formula, type, value)
+    - Sidebar or tooltip component with TailwindCSS styling
 - **services/**
   - `api.service.ts`: Facade for all HTTP requests to the C# backend.
-  - `notification.service.ts`: Handles toast notifications.
-  - `state.service.ts` (Optional): Manages local store of `mergedCells` and `rowData`.
+  - `notification.service.ts`: Handles toast notifications (can use Tailwind-styled toasts).
+  - `state.service.ts`: Manages application state (current template, session ID, example vs uploaded data).
 - **models/**
   - `api-types.ts`: Shared interfaces (`Template`, `AuditLogEntry`, `SessionResponse`).
+- **config/**
+  - `example-data.ts`: Hardcoded example template data for initial display.
+- **styles/**
+  - `styles.css`: Global styles, Tailwind imports, and AG-Grid theme customizations.
 
 ### 9.2 Backend (C# .NET Core)
 The backend is structured as a clean Web API with service-layer isolation.
@@ -204,6 +267,42 @@ The backend is structured as a clean Web API with service-layer isolation.
   - `PdfService.cs`: Generates PDF reports.
 
 ## 10. Error Handling & Edge Cases
-- **Session Expiration**: If the user attempts an action on an expired session, the API returns `404 Session Not Found`. The frontend redirects the user to the Upload page with a notification.
+- **Session Expiration**: If the user attempts an action on an expired session, the API returns `404 Session Not Found`. The frontend redirects the user to show a notification and allows them to continue with example data or upload a new file.
 - **Concurrent Access**: Since sessions are stateless and ID-based, basic concurrency is handled by version checking. If `clientVersion != serverVersion` on save, the server rejects the update to prevent overwriting (Optimistic Concurrency Control).
 - **Invalid File Type/Empty File**: The Upload endpoint strictly validates MIME types and file size to reject non-Excel or empty files.
+- **Example Data Mode**: When in example data mode (no file uploaded), certain features like "Save to Backend" may be disabled or show informational messages.
+
+## 11. Development Setup
+
+### 11.1 TailwindCSS Installation
+```bash
+npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init
+```
+
+### 11.2 Tailwind Configuration
+**tailwind.config.js**:
+```javascript
+module.exports = {
+  content: ['./src/**/*.{html,ts}'],
+  theme: {
+    extend: {
+      colors: {
+        primary: '#your-brand-color',
+        // Add custom colors
+      },
+    },
+  },
+  plugins: [],
+}
+```
+
+**src/styles.css**:
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* AG-Grid theme customizations */
+/* Custom component styles */
+```
