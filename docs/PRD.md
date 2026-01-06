@@ -43,7 +43,9 @@ To provide a secure, full-stack (C# & Angular) solution that transforms Excel te
 
 - **High-Performance Grid**: Render the extracted schema into a responsive, interactive table using AG-Grid.
 
-- **Real-time Validation**: Implement visual indicators for data that violates pre-defined ranges or types (e.g., highlighting out-of-spec values in red).
+- **Real-time Validation**: Implement robust integrity checks that provide immediate feedback:
+  - **Toast Notifications**: Display immediate warning alerts (toasts) when a user attempts to enter invalid data types.
+  - **Automatic Reversion**: Automatically revert invalid input to the previous valid value to maintain data integrity.
 
 - **Formula Synchronization**: Re-calculate dependent values instantly upon any user input within the browser.
 

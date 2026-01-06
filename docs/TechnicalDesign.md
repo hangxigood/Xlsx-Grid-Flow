@@ -120,16 +120,35 @@ The system parses the string values in Row 1 to determine column logic.
 
 ### 4.1 Grid Rendering (AG-Grid Integration)
 - **Cell Merging**: 
-  - The `mergedCells` array is processed to configure AG-Grid's `rowSpan` and `colSpan`. 
-  - **Editing Logic**: Only the top-left cell of a merged range is editable. Changes to this cell logically represent the entire merged area.
+  - The `mergedCells` array is processed using a lookup helper to calculate dynamic `rowSpan` and `colSpan` callbacks for each column.
+  - **Technical Requirement**: `suppressRowTransform: true` is enabled on the grid to allow cells to visually span across row boundaries.
+  - **Editing Logic**: Only the **Master Cell** (top-left) of a merged range is `editable: true`. All other cells covered by the merge are automatically set to `editable: false`.
+  - **Visual Styling**: 
+    - Master cells receive a `.cell-merge-master` class with an indigo left border accent.
+    - All cells within a range receive a `.cell-merged` class to ensure consistent background and alignment.
 - **Unified Logic**: Formatting (date strings, number alignment) and validation are applied globally based on the `dataType` property in `ColumnDef`.
-- **Unsaved Changes**: The grid maintains a diff state. Cells where `currentValue !== baselineValue` are assigned a CSS class (e.g., `.cell-unsaved`) with a specific background color (e.g., amber/yellow) as defined in styles.
+- **Unsaved Changes**: Re-evaluation of the diff state occurs on every cell change. Cells where `currentValue !== baselineValue` are assigned a `.cell-unsaved` class.
 
 ### 4.2 Formula Engine
-- **Storage**: Formulas are extracted from Excel and preserved in `rowData` as strings beginning with `=`.
-- **Execution**: A client-side formula parser (e.g., `hyperformula`) creates a dependency graph.
-  - When an editable cell changes, dependent cells are automatically recalculated.
-- **Display vs. Value**: The grid displays the *calculated result* by default. The *formula string* is visible only in the Metadata Inspector when the cell is selected.
+The application uses **HyperFormula** for client-side formula calculation and automatic dependency management.
+
+#### Implementation Details
+- **Library**: `hyperformula` (GPL v3 license)
+- **Service**: `FormulaService` (`src/app/services/formula.service.ts`) wraps HyperFormula functionality
+- **Storage**: Formulas are extracted from Excel and preserved in `rowData` as strings beginning with `=` (e.g., `=C2*D2`)
+- **Execution**: HyperFormula creates a dependency graph and manages formula calculations
+  - When an editable cell changes, dependent cells are automatically recalculated
+  - The FormulaService converts grid data to HyperFormula's 2D array format
+  - Calculated values are retrieved and stored in the application state
+- **Display vs. Value**: The grid displays the *calculated result* by default (e.g., `4999.95`). The *formula string* (e.g., `=C2*D2`) is visible in the Metadata Inspector when the cell is selected.
+- **Error Handling**: Formula errors (division by zero, circular references, etc.) are converted to `null` values to maintain type safety
+
+#### Integration Flow
+1. **Initialization**: When a template is loaded, `FormulaService.initializeFormulas()` sets up HyperFormula with column definitions and row data
+2. **Cell Update**: When a user edits a cell, `StateService.updateCellValue()` calls `FormulaService.updateCell()` which triggers recalculation
+3. **Recalculation**: HyperFormula automatically recalculates all dependent formulas
+4. **State Update**: Calculated values are retrieved via `FormulaService.getCalculatedData()` and stored in the state
+5. **Grid Refresh**: The grid displays updated calculated values
 
 ### 4.3 State Management (Stateless Flow)
 The application operates in-memory to maintain data privacy.
@@ -183,12 +202,17 @@ The single-page layout is organized as follows:
 ## 6. Validation & Integrity (Frontend)
 
 ### 6.1 Real-time Validation
-Leverages AG-Grid's built-in validation capabilities while enforcing specific visual cues.
+The system enforces data integrity through real-time type checking and immediate user feedback via toast notifications.
 
-- **Type Checking**: Managed by AG-Grid's column definitions (e.g., `valueParser`, `suppressKeyboardEvent`).
-- **Visual Feedback**:
-  - **Invalid Cells**: Custom CSS class applied to cells failing validation to show a **red border**.
-  - **Blocking**: Users cannot "Save" if **Critical Errors** exist (e.g., wrong data type). Non-critical warnings may allow saving with confirmation.
+- **Type Checking**: Managed by AG-Grid's `valueParser` logic within the `GridWrapperComponent`.
+- **Validation Feedback (Toasts)**:
+  - **Error Notifications**: When a user enters a value that does not match the column's `dataType` (e.g., non-numeric text in a `number` column), a warning toast is triggered via the `NotificationService`.
+  - **Duplicate Suppression**: To prevent notification fatigue during rapid typing, the `NotificationService` implements a 1-second debounce/deduplication window for identical messages.
+- **Value Reversion**: If validation fails, the system automatically reverts the cell to its `oldValue`, preventing corrupted data from entering the application state.
+- **Visual Cues**:
+  - **Unsaved Changes**: Cells with pending changes are highlighted with a blue background/accent (`.cell-unsaved`).
+  - **ReadOnly State**: Protected columns use a distinct background and restricted cursors to prevent interaction.
+- **Blocking Logic**: The "Save" action is only permitted if all cells contain valid data types. Any critical validation error must be resolved before a snapshot can be committed to the backend.
 
 ## 7. Backend Architecture (C# .NET)
 
@@ -248,6 +272,7 @@ The frontend is organized as a single-page application with clear separation of 
   - `api.service.ts`: Facade for all HTTP requests to the C# backend.
   - `notification.service.ts`: Handles toast notifications (can use Tailwind-styled toasts).
   - `state.service.ts`: Manages application state (current template, session ID, example vs uploaded data).
+  - `formula.service.ts`: Wraps HyperFormula for client-side formula calculation and dependency management.
 - **models/**
   - `api-types.ts`: Shared interfaces (`Template`, `AuditLogEntry`, `SessionResponse`).
 - **config/**
