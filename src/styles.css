@@ -1,1 +1,40 @@
+/* AG-Grid Theme is now handled via the Theming API in the component */
+
+@import "tailwindcss";
+
+/* Custom cell styling for unsaved changes */
+.cell-unsaved {
+    background-color: #fef3c7 !important;
+    /* amber-100 */
+    border-left: 3px solid #f59e0b !important;
+    /* amber-500 */
+}
+
+/* Custom cell styling for validation errors */
+.cell-error {
+    border: 2px solid #ef4444 !important;
+    /* red-500 */
+}
+
+/* Readonly cell styling */
+.cell-readonly {
+    background-color: #f3f4f6 !important;
+    /* gray-100 */
+    cursor: not-allowed !important;
+}
+
+/* Merged cell styling */
+.cell-merged {
+    background-color: #ffffff;
+}
+
+.cell-merge-master {
+    border-bottom: 1px solid #e5e7eb !important;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    border-left: 3px solid #6366f1 !important;
+    /* Indigo accent for master merge */
+}
+
 /* You can add global styles to this file, and also import other style files */

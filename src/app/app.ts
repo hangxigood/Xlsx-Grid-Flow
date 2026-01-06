@@ -1,12 +1,14 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component } from '@angular/core';
+import { MainLayoutComponent } from './components/main-layout/main-layout.component';
+import { NotificationToastComponent } from './components/notification-toast/notification-toast.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
-  templateUrl: './app.html',
-  styleUrl: './app.css'
+  imports: [MainLayoutComponent, NotificationToastComponent],
+  template: `
+    <app-main-layout />
+    <app-notification-toast />
+  `,
+  styles: [],
 })
-export class App {
-  protected readonly title = signal('xlsx-grid-flow');
-}
+export class App { }
