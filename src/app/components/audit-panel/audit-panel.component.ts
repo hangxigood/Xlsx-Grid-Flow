@@ -141,6 +141,10 @@ export class AuditPanelComponent {
   }
 
   protected onRollback(version: number): void {
+    this.notificationService.info(`Rollback to version ${version} - Feature coming soon`);
+
+    // Logic commented out for now
+    /*
     const sessionId = this.stateService.session();
     if (!sessionId) return;
 
@@ -162,6 +166,7 @@ export class AuditPanelComponent {
         this.notificationService.error(`Rollback failed: ${error.message}`);
       },
     });
+    */
   }
 
   protected formatTimestamp(timestamp: string): string {

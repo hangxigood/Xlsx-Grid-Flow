@@ -1,7 +1,9 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using XlsxGridFlow.Api.DTOs;
 using XlsxGridFlow.Api.Models;
+using XlsxGridFlow.Api.Utilities;
 
 namespace XlsxGridFlow.Api.Services;
 
@@ -137,17 +139,48 @@ public class PdfService
                             }
                         });
 
+                        // Create a lookup for merged cells
+                        var mergedCellLookup = MergedCellHelper.CreateMergedCellLookup(session.MergedCells);
+
                         // Data rows
                         foreach (var row in session.CurrentSnapshot)
                         {
+                            // Row ID column (always rendered)
                             table.Cell().Element(CellStyle).Text(row.RowId.ToString());
                             
-                            foreach (var colDef in session.ColumnDefs)
+                            // Data columns
+                            for (int colIndex = 0; colIndex < session.ColumnDefs.Count; colIndex++)
                             {
-                                var value = row.Cells.TryGetValue(colDef.Field, out var v) 
-                                    ? v?.ToString() ?? "" 
-                                    : "";
-                                table.Cell().Element(CellStyle).Text(value);
+                                var colDef = session.ColumnDefs[colIndex];
+                                var cellKey = $"{row.RowId},{colIndex + 1}"; // colIndex is 0-based, Excel cols are 1-based
+
+                                // Check if this cell is part of a merged range
+                                if (mergedCellLookup.TryGetValue(cellKey, out var mergedCell))
+                                {
+                                    // Only render the top-left cell of a merged range
+                                    if (MergedCellHelper.IsTopLeftOfMergedRange(row.RowId, colIndex + 1, mergedCell))
+                                    {
+                                        var value = row.Cells.TryGetValue(colDef.Field, out var v) 
+                                            ? v?.ToString() ?? "" 
+                                            : "";
+
+                                        // Apply row and column span
+                                        table.Cell()
+                                            .RowSpan(MergedCellHelper.GetRowSpan(mergedCell))
+                                            .ColumnSpan(MergedCellHelper.GetColumnSpan(mergedCell))
+                                            .Element(CellStyle)
+                                            .Text(value);
+                                    }
+                                    // Skip cells that are covered by a merged range
+                                }
+                                else
+                                {
+                                    // Normal cell - not merged
+                                    var value = row.Cells.TryGetValue(colDef.Field, out var v) 
+                                        ? v?.ToString() ?? "" 
+                                        : "";
+                                    table.Cell().Element(CellStyle).Text(value);
+                                }
                             }
                         }
                     });

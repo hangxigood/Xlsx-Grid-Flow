@@ -70,10 +70,10 @@ public class ExcelService
             var headerCell = worksheet.Cells[1, col];
             var headerValue = headerCell.Text?.Trim();
 
-            // Skip empty headers
+            // Assign default header name for empty headers
             if (string.IsNullOrWhiteSpace(headerValue))
             {
-                continue;
+                headerValue = " ";
             }
 
             var (cleanName, dataType, editable) = ParseHeaderString(headerValue);
