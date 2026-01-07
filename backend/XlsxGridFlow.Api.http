@@ -1,0 +1,6 @@
+@XlsxGridFlow.Api_HostAddress = http://localhost:5155
+
+GET {{XlsxGridFlow.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
