@@ -2,7 +2,15 @@
  * API request and response DTOs
  */
 
-import { ColumnDef, GridRow, MergedCell } from './grid-types';
+import { ColumnDef, GridRow, MergedCell, CellValue } from './grid-types';
+
+/**
+ * Row data structure from the backend API (with nested cells)
+ */
+export interface ApiGridRow {
+    rowId: number;
+    cells: Record<string, CellValue>; // e.g., { "A": "Laptop", "B": 1, ... }
+}
 
 /**
  * Response from template upload endpoint
@@ -13,7 +21,7 @@ export interface UploadResponse {
     template: {
         filename: string;
         columnDefs: ColumnDef[];
-        rowData: GridRow[];
+        rowData: ApiGridRow[]; // Backend returns nested structure
         mergedCells: MergedCell[];
     };
 }

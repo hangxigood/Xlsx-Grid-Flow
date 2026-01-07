@@ -44,7 +44,11 @@ string | number | boolean | null
 ```json
 {
   "rowId": "number",
-  "[key: string]": "CellValue" // Dynamic fields mapping to ColumnDefDto.field
+  "cells": {
+    "A": "CellValue", // e.g., "Laptop"
+    "B": "CellValue", // e.g., 1
+    "[key: string]": "CellValue"
+  }
 }
 ```
 

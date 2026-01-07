@@ -7,11 +7,13 @@ import { CommonModule } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { StateService } from '../../services/state.service';
 import { NotificationService } from '../../services/notification.service';
+import { GridRow } from '../../models/grid-types';
+import { fromApiGridRows } from '../../utils/data-transform.utils';
 
 @Component({
-    selector: 'app-upload',
-    imports: [CommonModule],
-    template: `
+  selector: 'app-upload',
+  imports: [CommonModule],
+  template: `
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">Upload Excel Template</h2>
       
@@ -69,88 +71,99 @@ import { NotificationService } from '../../services/notification.service';
       </div>
     </div>
   `,
-    styles: [],
+  styles: [],
 })
 export class UploadComponent {
-    private apiService = inject(ApiService);
-    private stateService = inject(StateService);
-    private notificationService = inject(NotificationService);
+  private apiService = inject(ApiService);
+  private stateService = inject(StateService);
+  private notificationService = inject(NotificationService);
 
-    protected isDragging = signal(false);
-    protected isUploading = signal(false);
+  protected isDragging = signal(false);
+  protected isUploading = signal(false);
 
-    protected onDragOver(event: DragEvent): void {
-        event.preventDefault();
-        event.stopPropagation();
-        this.isDragging.set(true);
+  protected onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragging.set(true);
+  }
+
+  protected onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragging.set(false);
+  }
+
+  protected onDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragging.set(false);
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      this.handleFile(files[0]);
+    }
+  }
+
+  protected onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.handleFile(input.files[0]);
+    }
+  }
+
+  private handleFile(file: File): void {
+    // Validate file type
+    if (!file.name.endsWith('.xlsx')) {
+      this.notificationService.error('Invalid file type. Please upload an .xlsx file.');
+      return;
     }
 
-    protected onDragLeave(event: DragEvent): void {
-        event.preventDefault();
-        event.stopPropagation();
-        this.isDragging.set(false);
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      this.notificationService.error('File size exceeds 10MB limit.');
+      return;
     }
 
-    protected onDrop(event: DragEvent): void {
-        event.preventDefault();
-        event.stopPropagation();
-        this.isDragging.set(false);
+    this.uploadFile(file);
+  }
 
-        const files = event.dataTransfer?.files;
-        if (files && files.length > 0) {
-            this.handleFile(files[0]);
-        }
-    }
+  private uploadFile(file: File): void {
+    this.isUploading.set(true);
+    this.stateService.setUploading(true);
 
-    protected onFileSelected(event: Event): void {
-        const input = event.target as HTMLInputElement;
-        if (input.files && input.files.length > 0) {
-            this.handleFile(input.files[0]);
-        }
-    }
+    this.apiService.uploadTemplate(file).subscribe({
+      next: (response) => {
+        // Transform the nested API structure to flat GridRow structure
+        const flatRowData: GridRow[] = fromApiGridRows(response.template.rowData);
 
-    private handleFile(file: File): void {
-        // Validate file type
-        if (!file.name.endsWith('.xlsx')) {
-            this.notificationService.error('Invalid file type. Please upload an .xlsx file.');
-            return;
-        }
+        // Create the template with flattened row data
+        const templateWithId = {
+          id: response.sessionId,
+          filename: response.template.filename,
+          columnDefs: response.template.columnDefs,
+          rowData: flatRowData,
+          mergedCells: response.template.mergedCells
+        };
 
-        // Validate file size (max 10MB)
-        const maxSize = 10 * 1024 * 1024; // 10MB
-        if (file.size > maxSize) {
-            this.notificationService.error('File size exceeds 10MB limit.');
-            return;
-        }
+        this.stateService.loadUploadedTemplate(templateWithId, response.sessionId);
+        this.notificationService.success('File uploaded successfully!');
+        this.isUploading.set(false);
+        this.stateService.setUploading(false);
+      },
+      error: (error) => {
+        this.notificationService.error(`Upload failed: ${error.message}`);
+        this.isUploading.set(false);
+        this.stateService.setUploading(false);
+      },
+    });
+  }
 
-        this.uploadFile(file);
-    }
+  protected downloadExampleTemplate(event: Event): void {
+    event.stopPropagation();
 
-    private uploadFile(file: File): void {
-        this.isUploading.set(true);
-        this.stateService.setUploading(true);
-
-        this.apiService.uploadTemplate(file).subscribe({
-            next: (response) => {
-                const templateWithId = { ...response.template, id: response.sessionId };
-                this.stateService.loadUploadedTemplate(templateWithId, response.sessionId);
-                this.notificationService.success('File uploaded successfully!');
-                this.isUploading.set(false);
-                this.stateService.setUploading(false);
-            },
-            error: (error) => {
-                this.notificationService.error(`Upload failed: ${error.message}`);
-                this.isUploading.set(false);
-                this.stateService.setUploading(false);
-            },
-        });
-    }
-
-    protected downloadExampleTemplate(event: Event): void {
-        event.stopPropagation();
-
-        // For now, show a notification that this feature requires a static file
-        // In production, this would download a pre-made example.xlsx file from /public
-        this.notificationService.info('Example template download will be available once the static file is added to /public folder.');
-    }
+    // For now, show a notification that this feature requires a static file
+    // In production, this would download a pre-made example.xlsx file from /public
+    this.notificationService.info('Example template download will be available once the static file is added to /public folder.');
+  }
 }

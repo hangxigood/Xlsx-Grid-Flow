@@ -18,7 +18,7 @@ import { NotificationService } from '../../services/notification.service';
         <div class="flex items-center gap-3">
           <button
             (click)="onSave()"
-            [disabled]="!stateService.hasUnsavedChanges() || stateService.saving() || !stateService.session()"
+            [disabled]="!stateService.hasUnsavedChanges() || stateService.saving()"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             @if (stateService.saving()) {
@@ -59,20 +59,11 @@ import { NotificationService } from '../../services/notification.service';
 
         <!-- Right side: Export and History buttons -->
         <div class="flex items-center gap-3">
-          <button
-            (click)="onViewHistory()"
-            [disabled]="!stateService.session()"
-            class="px-4 py-2 bg-purple-100 hover:bg-purple-200 disabled:bg-gray-100 disabled:cursor-not-allowed text-purple-700 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            View History
-          </button>
+
 
           <button
             (click)="onExportPdf()"
-            [disabled]="!stateService.session() || stateService.exporting()"
+            [disabled]="stateService.exporting()"
             class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
           >
             @if (stateService.exporting()) {
@@ -131,11 +122,7 @@ export class ToolbarComponent {
     this.notificationService.info('Changes discarded. Reverted to last saved state.');
   }
 
-  protected onViewHistory(): void {
-    // This will be handled by emitting an event or using a shared service
-    // For now, just show a notification
-    this.notificationService.info('History panel will open when audit panel is integrated.');
-  }
+
 
   protected onExportPdf(): void {
     const sessionId = this.stateService.session();

@@ -11,6 +11,10 @@
 npm-debug.log
 yarn-error.log
 
+# Blog
+/Posts
+
+
 # IDEs and editors
 .idea/
 .project
@@ -44,3 +48,29 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# .NET
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+project.lock.json
+project.fragment.lock.json
+artifacts/
+**/Properties/launchSettings.json
+*.dbmdl
+*.jfm
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+.vs/
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

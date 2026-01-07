@@ -62,8 +62,8 @@ export class GridWrapperComponent implements OnInit {
     );
 
     protected defaultColDef: ColDef = {
-        sortable: true,
-        filter: true,
+        sortable: false,
+        filter: false,
         resizable: true,
         editable: false, // Will be overridden by column-specific settings
     };
@@ -73,6 +73,20 @@ export class GridWrapperComponent implements OnInit {
         effect(() => {
             const template = this.stateService.template();
             this.columnDefs.set(template.columnDefs.map((col) => this.mapToAgGridColumn(col)));
+        });
+
+        // REACTIVE PATTERN: Watch for version changes (Save operations)
+        // This replaces the manual 'saveCompleted' event chain.
+        // When version updates, we know data was saved, so we refresh styling.
+        effect(() => {
+            // Register dependency on version
+            const version = this.stateService.version();
+
+            // Use untracked for the side effect to avoid loops (though safe here)
+            // We check if gridApi exists because this effect runs immediately on init
+            if (this.gridApi) {
+                this.gridApi.refreshCells({ force: true });
+            }
         });
     }
 
@@ -140,9 +154,10 @@ export class GridWrapperComponent implements OnInit {
 
                 const rowIndex = params.node.rowIndex! + 2; // Convert to Excel row num
                 const colIndex = this.stateService.template().columnDefs.findIndex(c => c.field === col.field);
+                const excelColIndex = colIndex + 1; // Convert to 1-based for comparison
 
                 const merge = this.getMergeRule(rowIndex, colIndex);
-                if (merge && (rowIndex !== merge.startRow || colIndex !== merge.startCol)) {
+                if (merge && (rowIndex !== merge.startRow || excelColIndex !== merge.startCol)) {
                     return false;
                 }
 
@@ -152,9 +167,10 @@ export class GridWrapperComponent implements OnInit {
                 if (!params.node) return 1;
                 const rowIndex = params.node.rowIndex! + 2; // Convert to Excel row num
                 const colIndex = this.stateService.template().columnDefs.findIndex(c => c.field === col.field);
+                const excelColIndex = colIndex + 1; // Convert to 1-based for comparison
 
                 const merge = this.getMergeRule(rowIndex, colIndex);
-                if (merge && rowIndex === merge.startRow && colIndex === merge.startCol) {
+                if (merge && rowIndex === merge.startRow && excelColIndex === merge.startCol) {
                     return merge.endRow - merge.startRow + 1;
                 }
                 return 1;
@@ -163,9 +179,10 @@ export class GridWrapperComponent implements OnInit {
                 if (!params.node) return 1;
                 const rowIndex = params.node.rowIndex! + 2; // Convert to Excel row num
                 const colIndex = this.stateService.template().columnDefs.findIndex(c => c.field === col.field);
+                const excelColIndex = colIndex + 1; // Convert to 1-based for comparison
 
                 const merge = this.getMergeRule(rowIndex, colIndex);
-                if (merge && rowIndex === merge.startRow && colIndex === merge.startCol) {
+                if (merge && rowIndex === merge.startRow && excelColIndex === merge.startCol) {
                     return merge.endCol - merge.startCol + 1;
                 }
                 return 1;
@@ -176,6 +193,7 @@ export class GridWrapperComponent implements OnInit {
 
                 const rowIndex = params.node.rowIndex! + 2;
                 const colIndex = this.stateService.template().columnDefs.findIndex(c => c.field === col.field);
+                const excelColIndex = colIndex + 1; // Convert to 1-based for comparison
 
                 // Readonly styling
                 if (!col.editable) {
@@ -191,7 +209,7 @@ export class GridWrapperComponent implements OnInit {
                 const merge = this.getMergeRule(rowIndex, colIndex);
                 if (merge) {
                     classes.push('cell-merged');
-                    if (rowIndex === merge.startRow && colIndex === merge.startCol) {
+                    if (rowIndex === merge.startRow && excelColIndex === merge.startCol) {
                         classes.push('cell-merge-master');
                     }
                 }
@@ -219,10 +237,17 @@ export class GridWrapperComponent implements OnInit {
                 break;
 
             case 'date':
+                agCol.cellEditor = 'agDateCellEditor';
                 agCol.valueFormatter = (params) => {
                     if (!params.value) return '';
                     const date = new Date(params.value);
                     return date.toLocaleDateString();
+                };
+                agCol.valueParser = (params) => {
+                    // Handle date input from the editor
+                    if (!params.newValue) return null;
+                    // AG-Grid date editor returns ISO string format
+                    return params.newValue;
                 };
                 break;
 
@@ -248,25 +273,33 @@ export class GridWrapperComponent implements OnInit {
                 break;
 
             case 'boolean':
+                agCol.cellEditor = 'agCheckboxCellEditor';
                 agCol.valueParser = (params) => {
                     const value = params.newValue;
-                    if (value === null || value === '') return null;
 
-                    // Accept various boolean representations
-                    const strValue = String(value).toLowerCase().trim();
-                    if (['true', 'yes', '1', 'y'].includes(strValue)) {
-                        return true;
-                    } else if (['false', 'no', '0', 'n'].includes(strValue)) {
-                        return false;
-                    } else {
-                        this.notificationService.warning(
-                            `Invalid boolean value: "${value}". Please enter true/false, yes/no, or 1/0.`
-                        );
-                        return params.oldValue;
+                    // Handle null/empty
+                    if (value === null || value === undefined || value === '') {
+                        return null;
                     }
+
+                    // Checkbox editor returns boolean, just pass it through
+                    if (typeof value === 'boolean') {
+                        return value;
+                    }
+
+                    // If somehow a non-boolean value comes through, reject it
+                    this.notificationService.warning(
+                        `Invalid boolean value. Please use the checkbox to set true/false.`
+                    );
+                    return params.oldValue;
                 };
                 agCol.cellRenderer = (params: any) => {
-                    return params.value ? '✓' : '✗';
+                    // null/undefined = empty (no value set)
+                    if (params.value === null || params.value === undefined) {
+                        return '';
+                    }
+                    // true = ✓, false = ✗
+                    return params.value === true ? '✓' : '✗';
                 };
                 break;
         }
@@ -276,11 +309,14 @@ export class GridWrapperComponent implements OnInit {
 
     /**
      * Get merge rule for a specific cell coordinate
+     * Note: colIndex is 0-based (array index), but merged cell data uses 1-based (Excel) indexing
      */
     private getMergeRule(rowNum: number, colIndex: number) {
+        // Convert 0-based colIndex to 1-based for comparison with backend data
+        const excelColIndex = colIndex + 1;
         return this.stateService.template().mergedCells.find(m =>
             rowNum >= m.startRow && rowNum <= m.endRow &&
-            colIndex >= m.startCol && colIndex <= m.endCol
+            excelColIndex >= m.startCol && excelColIndex <= m.endCol
         );
     }
 
@@ -297,5 +333,14 @@ export class GridWrapperComponent implements OnInit {
         if (!currentRow || !savedRow) return false;
 
         return currentRow[field] !== savedRow[field];
+    }
+
+    /**
+     * Refresh all grid cells (used after save to update styling)
+     */
+    public refreshCells(): void {
+        if (this.gridApi) {
+            this.gridApi.refreshCells({ force: true });
+        }
     }
 }

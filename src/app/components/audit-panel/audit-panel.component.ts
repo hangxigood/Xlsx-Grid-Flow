@@ -2,7 +2,7 @@
  * Audit Panel Component - Version history and rollback interface
  */
 
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { StateService } from '../../services/state.service';
@@ -14,29 +14,16 @@ import { VersionGroup } from '../../models/api-types';
   imports: [CommonModule],
   template: `
     <div class="bg-white rounded-lg shadow-md p-4">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center mb-4">
         <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           Audit History
         </h3>
-        <button
-          (click)="togglePanel()"
-          class="text-gray-500 hover:text-gray-700 transition-colors"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            @if (isPanelOpen()) {
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
-            } @else {
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            }
-          </svg>
-        </button>
       </div>
 
-      @if (isPanelOpen()) {
-        <div class="border-t pt-4">
+      <div class="border-t pt-4">
           @if (stateService.loadingHistory()) {
             <div class="flex justify-center py-8">
               <svg class="animate-spin h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24">
@@ -105,21 +92,7 @@ import { VersionGroup } from '../../models/api-types';
             </div>
           }
 
-          <!-- Load History Button -->
-          @if (!stateService.session()) {
-            <div class="text-center py-4 text-sm text-gray-500">
-              Upload a file to view audit history
-            </div>
-          } @else if (auditHistory().length === 0 && !stateService.loadingHistory()) {
-            <button
-              (click)="loadHistory()"
-              class="w-full px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
-            >
-              Load History
-            </button>
-          }
-        </div>
-      }
+      </div>
     </div>
   `,
   styles: [],
@@ -129,16 +102,19 @@ export class AuditPanelComponent {
   private readonly apiService = inject(ApiService);
   private readonly notificationService = inject(NotificationService);
 
-  protected isPanelOpen = signal(false);
   protected auditHistory = signal<VersionGroup[]>([]);
 
-  protected togglePanel(): void {
-    const newState = !this.isPanelOpen();
-    this.isPanelOpen.set(newState);
+  constructor() {
+    // Auto-load and auto-reload audit history when version changes or session is created
+    effect(() => {
+      const version = this.stateService.version();
+      const sessionId = this.stateService.session();
 
-    if (newState && this.auditHistory().length === 0 && this.stateService.session()) {
-      this.loadHistory();
-    }
+      // Load history if we have a session and version > 0
+      if (sessionId && version > 0) {
+        this.loadHistory();
+      }
+    });
   }
 
   protected loadHistory(): void {

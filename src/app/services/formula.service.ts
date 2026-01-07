@@ -11,11 +11,15 @@ import { GridRow, ColumnDef } from '../models/grid-types';
 })
 export class FormulaService {
     private hfInstance: HyperFormula | null = null;
+    private originalRowData: GridRow[] = []; // Store original row data for rowId mapping
 
     /**
      * Initialize HyperFormula with grid data
      */
     initializeFormulas(columnDefs: ColumnDef[], rowData: GridRow[]): void {
+        // Store original row data for rowId mapping
+        this.originalRowData = rowData;
+
         // Configuration for HyperFormula
         const config: Partial<ConfigParams> = {
             licenseKey: 'gpl-v3', // Use GPL v3 license
@@ -31,10 +35,18 @@ export class FormulaService {
 
     /**
      * Update a cell value and recalculate dependent formulas
+     * @param rowId The rowId from the GridRow (not the array index!)
      */
-    updateCell(rowIndex: number, columnField: string, value: any, columnDefs: ColumnDef[]): void {
+    updateCell(rowId: number, columnField: string, value: any, columnDefs: ColumnDef[]): void {
         if (!this.hfInstance) {
             console.warn('HyperFormula not initialized');
+            return;
+        }
+
+        // Find the array index of the row with this rowId
+        const arrayIndex = this.originalRowData.findIndex(row => row.rowId === rowId);
+        if (arrayIndex === -1) {
+            console.warn(`Row with rowId ${rowId} not found`);
             return;
         }
 
@@ -46,10 +58,11 @@ export class FormulaService {
             return;
         }
 
-        // Update the cell in HyperFormula (rowIndex is 0-based in HyperFormula)
-        // Add 1 to rowIndex because row 0 is headers
+        // Update the cell in HyperFormula
+        // arrayIndex is 0-based, but HyperFormula row 0 is headers, so add 1
+        const hfRow = arrayIndex + 1;
         this.hfInstance.setCellContents(
-            { sheet: 0, col: colIndex, row: rowIndex },
+            { sheet: 0, col: colIndex, row: hfRow },
             value
         );
     }
@@ -59,7 +72,7 @@ export class FormulaService {
      * For formula cells, returns the formula string (e.g., "=C2*D2")
      * For regular cells, returns the calculated value
      */
-    getCalculatedData(columnDefs: ColumnDef[], rowCount: number): GridRow[] {
+    getCalculatedData(columnDefs: ColumnDef[], originalRowData: GridRow[]): GridRow[] {
         if (!this.hfInstance) {
             console.warn('HyperFormula not initialized');
             return [];
@@ -67,9 +80,10 @@ export class FormulaService {
 
         const calculatedRows: GridRow[] = [];
 
-        // Start from row 1 (row 0 is headers)
-        for (let rowIdx = 1; rowIdx <= rowCount; rowIdx++) {
-            const row: GridRow = { rowId: rowIdx };
+        // Iterate through original rows to preserve rowIds
+        originalRowData.forEach((originalRow, index) => {
+            const rowIdx = index + 1; // +1 because row 0 is headers in HyperFormula
+            const row: GridRow = { rowId: originalRow.rowId }; // Preserve original rowId
 
             columnDefs.forEach((colDef, colIdx) => {
                 // First, check if this cell contains a formula
@@ -103,7 +117,7 @@ export class FormulaService {
             });
 
             calculatedRows.push(row);
-        }
+        });
 
         return calculatedRows;
     }

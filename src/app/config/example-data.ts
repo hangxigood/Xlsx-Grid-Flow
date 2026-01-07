@@ -108,8 +108,8 @@ export const EXAMPLE_TEMPLATE: Template = {
         {
             startRow: 2, // Laptop (rowId 2) status
             endRow: 3,   // Mouse (rowId 3) status
-            startCol: 6, // Column G (Status)
-            endCol: 6,   // Column G (Status)
+            startCol: 7, // Column G (Status) - 1-based Excel indexing
+            endCol: 7,   // Column G (Status) - 1-based Excel indexing
         },
     ],
 };

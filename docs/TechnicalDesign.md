@@ -36,10 +36,16 @@ type MergedCell = {
   endCol: number;
 };
 
-// Represents a single row in the grid with dynamic columns
+// Frontend Model (Flat structure for AG-Grid)
 interface GridRow {
-  rowId: number;             // 1-based index matching the original Excel row number
-  [key: string]: CellValue;  // Dynamic fields matching ColumnDef.field
+  rowId: number;
+  [key: string]: CellValue;  // e.g., "A": "Laptop"
+}
+
+// Backend API Model (Nested structure for extensibility)
+interface ApiGridRow {
+  rowId: number;
+  cells: Record<string, CellValue>; // e.g., { "A": "Laptop" }
 }
 
 interface Template {
@@ -71,8 +77,8 @@ interface AuditLogEntry {
   version: number;        // The version identifier this change belongs to
   timestamp: string;      // ISO 8601
   cellReference: string;  // e.g., "B4"
-  oldValue: CellValue;
-  newValue: CellValue;
+  oldValue: CellValue;    // Previous value (for editable cells) or calculated result (for formulas)
+  newValue: CellValue;    // New value (for editable cells) or calculated result (for formulas)
 }
 
 interface SessionState {
@@ -82,6 +88,21 @@ interface SessionState {
   changeLog: AuditLogEntry[];
 }
 ```
+
+**Audit Trail Behavior:**
+- **Editable Cells**: Logs direct user changes (e.g., "C2: 10 → 20")
+- **Formula Cells**: Logs calculated result changes (e.g., "E2: 100 → 200" when formula =C2*D2 recalculates)
+- **Purpose**: Provides complete traceability of how data evolved, including both user actions and their downstream effects on calculated values
+- **Formula Strings**: The formula itself (e.g., "=C2*D2") is stored in the data but never changes, so it's not logged in the audit trail
+
+
+### 2.4 Data Transformation Strategy
+To optimize for both API extensibility and Frontend performance, the system employs a transformation layer at the boundary:
+
+1. **Backend API**: Returns nested `ApiGridRow` structure (`{ rowId: 1, cells: { "A": "Val" } }`) to keep metadata distinct from data.
+2. **Frontend Service**: The `ApiService` receives the nested structure.
+3. **Transformation**: The data is flattened into `GridRow` (`{ rowId: 1, "A": "Val" }`) before being stored in `StateService`.
+4. **UI Layer**: AG-Grid binds directly to the flat `GridRow` objects for maximum performance.
 
 ## 3. Template Specification & Parsing Logic
 Instead of complex UI forms, the system relies on a strict Excel template structure to define the application's behavior.
@@ -101,8 +122,9 @@ The system parses the string values in Row 1 to determine column logic.
 
 1. **Editable Columns**: Defined by suffixing the header with a type hint in parentheses.
    - Example: `Price (number)`, `Birthday (date)`, `Comment (text)`
-2. **ReadOnly Columns**: Defined by suffixing the header with `(ReadOnly)`.
-   - Example: `Total (ReadOnly)`, `Status (ReadOnly)`
+2. **ReadOnly Columns**: Defined by suffixing the header with `(ReadOnly)` or `(formula)`.
+   - Example: `Total (ReadOnly)`, `Status (ReadOnly)`, `Calculated (formula)`
+   - **Formula columns tagged with (formula) are read-only** since they contain calculated values
 3. **Implicit Logic**: 
    - If no tag is present, the system auto-detects the type from the first data row (Row 2) and defaults to `editable: true`.
    - **Empty First Row Fallback**: If the first data row is empty, the column defaults to `text`.
@@ -114,25 +136,28 @@ The system parses the string values in Row 1 to determine column logic.
 | `Name (text)` | `text` | `true` |
 | `Quantity (number)` | `number` | `true` |
 | `Due Date (date)` | `date` | `true` |
+| `Total (formula)` | `formula` | `false` |
 | `Total (ReadOnly)` | `text` | `false` |
 
 ## 4. Components & Logic
 
 ### 4.1 Grid Rendering (AG-Grid Integration)
 - **Cell Merging**: 
-  - The `mergedCells` array is processed using a lookup helper to calculate dynamic `rowSpan` and `colSpan` callbacks for each column.
+  - The `mergedCells` array uses **1-based indexing** (Excel standard). The frontend converts its 0-based grid coordinates (`colIndex + 1`) to match these rules.
   - **Technical Requirement**: `suppressRowTransform: true` is enabled on the grid to allow cells to visually span across row boundaries.
   - **Editing Logic**: Only the **Master Cell** (top-left) of a merged range is `editable: true`. All other cells covered by the merge are automatically set to `editable: false`.
   - **Visual Styling**: 
     - Master cells receive a `.cell-merge-master` class with an indigo left border accent.
     - All cells within a range receive a `.cell-merged` class to ensure consistent background and alignment.
 - **Unified Logic**: Formatting (date strings, number alignment) and validation are applied globally based on the `dataType` property in `ColumnDef`.
-- **Unsaved Changes**: Re-evaluation of the diff state occurs on every cell change. Cells where `currentValue !== baselineValue` are assigned a `.cell-unsaved` class.
+- **Unsaved Changes**: 
+    - Re-evaluation of the diff state occurs on every cell change. Cells where `currentValue !== baselineValue` are assigned a `.cell-unsaved` class.
+    - **Reactive Refresh**: The Grid monitors the `stateService.version` signal. When a save completes (updating the version), the grid automatically triggers a refresh to clear these indicators.
 
 ### 4.2 Formula Engine
-The application uses **HyperFormula** for client-side formula calculation and automatic dependency management.
+The application uses a **dual-calculation strategy** for formulas: client-side for instant UX feedback and server-side for audit integrity.
 
-#### Implementation Details
+#### 4.2.1 Frontend Formula Calculation
 - **Library**: `hyperformula` (GPL v3 license)
 - **Service**: `FormulaService` (`src/app/services/formula.service.ts`) wraps HyperFormula functionality
 - **Storage**: Formulas are extracted from Excel and preserved in `rowData` as strings beginning with `=` (e.g., `=C2*D2`)
@@ -143,12 +168,39 @@ The application uses **HyperFormula** for client-side formula calculation and au
 - **Display vs. Value**: The grid displays the *calculated result* by default (e.g., `4999.95`). The *formula string* (e.g., `=C2*D2`) is visible in the Metadata Inspector when the cell is selected.
 - **Error Handling**: Formula errors (division by zero, circular references, etc.) are converted to `null` values to maintain type safety
 
-#### Integration Flow
+#### 4.2.2 Backend Formula Calculation
+- **Library**: EPPlus built-in formula engine
+- **Service**: `FormulaService.cs` (`backend/Services/FormulaService.cs`)
+- **Purpose**: Independent server-side validation and calculation for audit trail integrity
+- **Execution Flow**:
+  1. User saves changes (editable cells only)
+  2. Backend receives updated data
+  3. `FormulaService.RecalculateFormulas()` rebuilds an in-memory Excel worksheet
+  4. EPPlus calculates all formulas independently
+  5. Results are stored in the session snapshot
+  6. Audit log records **both** user edits AND formula result changes
+
+#### 4.2.3 Formula Immutability
+- **Formulas are defined once** during Excel upload and never change
+- Users can only edit **input cells** that formulas reference
+- Formula cells are always `editable: false`
+- **Audit trail logs both**:
+  - Direct user edits to input cells (e.g., "C2: 10 → 20")
+  - Resulting changes to formula calculations (e.g., "E2: 100 → 200")
+- **Formula strings themselves** (e.g., "=C2*D2") are never logged since they don't change
+
+#### 4.2.4 Integration Flow
 1. **Initialization**: When a template is loaded, `FormulaService.initializeFormulas()` sets up HyperFormula with column definitions and row data
 2. **Cell Update**: When a user edits a cell, `StateService.updateCellValue()` calls `FormulaService.updateCell()` which triggers recalculation
 3. **Recalculation**: HyperFormula automatically recalculates all dependent formulas
 4. **State Update**: Calculated values are retrieved via `FormulaService.getCalculatedData()` and stored in the state
 5. **Grid Refresh**: The grid displays updated calculated values
+6. **Save to Backend**: Backend independently recalculates formulas and validates results
+
+#### 4.2.5 Row Identity & Coordinate Mapping
+* **Persistent Identity**: The system relies on persistent `rowId`s that correspond to Excel's 1-based row numbering (starting at `rowId: 2` for the first data row).
+* **Identity Preservation**: Services must preserve original `rowId`s during all data transformations (e.g., when retrieving calculated data from HyperFormula), rather than regenerating sequential IDs.
+* **Coordinate Mapping**: `FormulaService` explicitly maps persistent `rowId`s to/from HyperFormula's internal 0-based row indices. Services never assume that `rowId` equals the array index.
 
 ### 4.3 State Management (Stateless Flow)
 The application operates in-memory to maintain data privacy.
@@ -160,6 +212,12 @@ The application operates in-memory to maintain data privacy.
   - API provides the full list of `AuditLogEntry[]` grouped by version.
   - **Preview**: UI allows the user to click a version to load that historical data into the grid (read-only mode).
   - **Rollback**: Confirmed "Rollback" calls `/api/session/revert/{version}`. This creates a **new version** (N+1) that matches the data of the target historical version, ensuring the rollback event itself is audited.
+
+### 4.3.1 Frontend Reactive State Pattern
+The frontend utilizes Angular Signals to implement a **Reactive State Pattern** (similar to Zustand/Redux), decoupling UI components from logic.
+- **Store**: `StateService` holds the Single Source of Truth (`version`, `rowData`, `savedRowData`).
+- **Trigger**: Actions (Save, Revert) update signals in the `StateService`.
+- **Reaction**: Consumers (like `GridWrapperComponent`) use `effect()` to watch signals and automatically react (e.g., refresh cells) without explicit commands from parent components.
 
 ### 4.4 Example Data Configuration
 The application includes hardcoded example data to provide immediate interaction:
@@ -207,11 +265,7 @@ The system enforces data integrity through real-time type checking and immediate
 - **Type Checking**: Managed by AG-Grid's `valueParser` logic within the `GridWrapperComponent`.
 - **Validation Feedback (Toasts)**:
   - **Error Notifications**: When a user enters a value that does not match the column's `dataType` (e.g., non-numeric text in a `number` column), a warning toast is triggered via the `NotificationService`.
-  - **Duplicate Suppression**: To prevent notification fatigue during rapid typing, the `NotificationService` implements a 1-second debounce/deduplication window for identical messages.
 - **Value Reversion**: If validation fails, the system automatically reverts the cell to its `oldValue`, preventing corrupted data from entering the application state.
-- **Visual Cues**:
-  - **Unsaved Changes**: Cells with pending changes are highlighted with a blue background/accent (`.cell-unsaved`).
-  - **ReadOnly State**: Protected columns use a distinct background and restricted cursors to prevent interaction.
 - **Blocking Logic**: The "Save" action is only permitted if all cells contain valid data types. Any critical validation error must be resolved before a snapshot can be committed to the backend.
 
 ## 7. Backend Architecture (C# .NET)
@@ -231,6 +285,9 @@ The backend utilizes `IMemoryCache` to store extraction sessions temporarily. No
 | `POST` | `/api/session/{sessionId}/revert/{version}` | Reverts the session to a specific `version`. |
 | `GET` | `/api/session/{sessionId}/audit` | Returns the full `AuditLogEntry[]` history for the session. |
 | `GET` | `/api/session/{sessionId}/export/pdf` | Generates a PDF report of the current state and audit trail. |
+
+### 7.3 Data Serialization
+- **Enums**: All backend enums (e.g., `DataType`) are serialized as **camelCase strings** (`"text"`, `"number"`) for direct compatibility with TypeScript union types.
 
 ## 8. Document Generation
 
@@ -283,7 +340,7 @@ The frontend is organized as a single-page application with clear separation of 
 ### 9.2 Backend (C# .NET Core)
 The backend is structured as a clean Web API with service-layer isolation.
 
-`XlsxGridFlow.API/`
+`backend/` (Project: `XlsxGridFlow.Api`)
 - **Controllers/**: `TemplateController`, `SessionController`, `ExportController`.
 - **Services/**
   - `ExcelService.cs`: Uses EPPlus. Parses headers for config conventions. Identifies merged cell ranges (`ExcelWorksheet.MergedCells`) and maps them to `MergedCell` objects.
@@ -311,16 +368,14 @@ npx tailwindcss init
 module.exports = {
   content: ['./src/**/*.{html,ts}'],
   theme: {
-    extend: {
-      colors: {
-        primary: '#your-brand-color',
-        // Add custom colors
-      },
-    },
+    extend: {},
   },
   plugins: [],
 }
 ```
+
+### 11.3 Backend Integration (Proxy)
+- **Dev Server**: The frontend uses `proxy.conf.json` to route `/api` requests to the .NET backend running on `http://localhost:5155`.
 
 **src/styles.css**:
 ```css

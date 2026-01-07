@@ -1,8 +1,22 @@
-# XlsxGridFlow
+# Xlsx-Grid-Flow
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.4.
+A secure, full-stack solution for transforming Excel templates into controlled web-based data entry interfaces with automated audit trails and PDF report generation.
 
-## Development server
+## Architecture
+
+- **Frontend**: Angular 21 application deployed to GitHub Pages
+- **Backend**: .NET 8.0 Web API deployed to Azure
+- **Design**: Stateless, in-memory processing for maximum data privacy
+
+## Project Structure
+
+- `/src` - Angular frontend application
+- `/backend` - .NET Web API backend
+- `/docs` - Product requirements and technical design documentation
+
+## Quick Start
+
+### Frontend Development
 
 To start a local development server, run:
 
@@ -35,6 +49,19 @@ ng build
 ```
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+
+### Backend Development
+
+To run the backend API locally:
+
+```bash
+cd backend
+dotnet run
+```
+
+The API will be available at `http://localhost:5000` with Swagger documentation at `http://localhost:5000/swagger`.
+
+For more details, see [backend/README.md](backend/README.md).
 
 ## Running unit tests
 

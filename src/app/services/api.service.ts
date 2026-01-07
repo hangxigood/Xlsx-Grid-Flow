@@ -14,6 +14,7 @@ import {
     AuditHistoryResponse,
     ErrorResponse,
 } from '../models/api-types';
+import { toApiGridRows } from '../utils/data-transform.utils';
 
 @Injectable({
     providedIn: 'root',
@@ -36,11 +37,36 @@ export class ApiService {
     }
 
     /**
+     * Initialize session from template data (e.g., example data)
+     */
+    initSession(template: any): Observable<UploadResponse> {
+        // Transform frontend Template (flat rows) to backend TemplateDto (nested cells)
+        const templateDto = {
+            filename: template.filename,
+            columnDefs: template.columnDefs,
+            rowData: toApiGridRows(template.rowData),
+            mergedCells: template.mergedCells
+        };
+
+        return this.http
+            .post<UploadResponse>(`${this.baseUrl}/template/init`, templateDto, {
+                headers: new HttpHeaders({ 'Content-Type': 'application/json' }),
+            })
+            .pipe(catchError(this.handleError));
+    }
+
+    /**
      * Save grid changes and generate new version
      */
     saveChanges(sessionId: string, request: SaveRequest): Observable<SaveResponse> {
+        // Transform frontend GridRow[] (flat) to backend GridRowDto[] (nested cells)
+        const transformedRequest = {
+            rowData: toApiGridRows(request.rowData),
+            clientVersion: request.clientVersion
+        };
+
         return this.http
-            .post<SaveResponse>(`${this.baseUrl}/session/${sessionId}/save`, request, {
+            .post<SaveResponse>(`${this.baseUrl}/session/${sessionId}/save`, transformedRequest, {
                 headers: new HttpHeaders({ 'Content-Type': 'application/json' }),
             })
             .pipe(catchError(this.handleError));
