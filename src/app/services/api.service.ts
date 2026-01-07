@@ -15,12 +15,13 @@ import {
     ErrorResponse,
 } from '../models/api-types';
 import { toApiGridRows } from '../utils/data-transform.utils';
+import { environment } from '../../environments/environment';
 
 @Injectable({
     providedIn: 'root',
 })
 export class ApiService {
-    private readonly baseUrl = '/api';
+    private readonly baseUrl = environment.apiUrl;
 
     constructor(private http: HttpClient) { }
 
