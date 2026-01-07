@@ -162,8 +162,12 @@ export class UploadComponent {
   protected downloadExampleTemplate(event: Event): void {
     event.stopPropagation();
 
-    // For now, show a notification that this feature requires a static file
-    // In production, this would download a pre-made example.xlsx file from /public
-    this.notificationService.info('Example template download will be available once the static file is added to /public folder.');
+    // Create a temporary link to trigger the download
+    const link = document.createElement('a');
+    link.href = '/testbook.xlsx';
+    link.download = 'testbook.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 }
