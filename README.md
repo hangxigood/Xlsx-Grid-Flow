@@ -1,86 +1,86 @@
 # Xlsx-Grid-Flow
 
-A secure, full-stack solution for transforming Excel templates into controlled web-based data entry interfaces with automated audit trails and PDF report generation.
+[![Frontend Deploy](https://img.shields.io/github/deployments/hangxigood/Xlsx-Grid-Flow/github-pages?label=Frontend&logo=github)](https://hangxigood.github.io/Xlsx-Grid-Flow/)
+[![Backend](https://img.shields.io/badge/Backend-Azure-0078D4?logo=microsoftazure)](https://azure.microsoft.com/)
 
-## Architecture
+A secure, full-stack solution for transforming Excel templates into controlled web-based data entry interfaces with automated audit trails and professional PDF report generation.
 
-- **Frontend**: Angular 21 application deployed to GitHub Pages
-- **Backend**: .NET 8.0 Web API deployed to Azure
-- **Design**: Stateless, in-memory processing for maximum data privacy
+**Live Demo:** [https://hangxigood.github.io/Xlsx-Grid-Flow/](https://hangxigood.github.io/Xlsx-Grid-Flow/)
 
-## Project Structure
+---
 
-- `/src` - Angular frontend application
-- `/backend` - .NET Web API backend
-- `/docs` - Product requirements and technical design documentation
+## 🚀 Features
 
-## Quick Start
+### Dynamic Excel Architecture
+- **Structure Parsing**: Automatically extracts metadata, logic, and layouts from `.xlsx` files.
+- **Merged Cell Support**: Preserves complex cell merging from Excel to the web grid.
+- **Type Intelligence**: Detects and enforces Excel-defined data types (text, numbers, dates) with real-time validation.
+- **Formula Engine**: Dual-layer calculation (Client-side interactive + Server-side validation) for maximum accuracy.
 
-### Frontend Development
+### Advanced Data Control
+- **Role-Based Access**: Automatically identifies and locks read-only or formula columns defined in the template.
+- **Real-Time Validation**: Immediate feedback with toast notifications and automatic reversion of invalid inputs.
+- **Audit Trails**: Detailed history tracking (Old Value vs. New Value) for every modification.
+- **Time Travel**: Browse historical versions and rollback the entire session to any previous state.
 
-To start a local development server, run:
+### Enterprise Outputs
+- **PDF Export**: Generates high-fidelity PDF reports combining the final data grid with a chronological audit appendix.
+- **Stateless Security**: "Privacy by Design"—all data is processed in-memory and purged upon session expiry. No database persistence.
 
-```bash
-ng serve
-```
+---
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## 🛠 Tech Stack
 
-## Code scaffolding
+- **Frontend**: Angular 21+, TailwindCSS 4, AG-Grid 35
+- **Backend**: .NET 8.0 Web API (C#)
+- **Deployment**: 
+  - Frontend: GitHub Pages
+  - Backend: Azure App Service
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## 🏗 Architecture
 
-```bash
-ng generate component component-name
-```
+The system employs a **Stateless Transformation Layer** to ensure security and performance:
+1. **Upload**: Users upload a standard Excel, which serves as the "configuration."
+2. **Parse**: Backend extracts the schema, formulas, and data types.
+3. **Interact**: Frontend provides a reactive, validation-rich interface.
+4. **Audit**: Every save creates an immutable version snapshot in server memory.
+5. **Export**: The final state and audit history are compiled into a comprehensive PDF.
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+For a deeper dive, read the [Technical Design Document](docs/TechnicalDesign.md).
 
-```bash
-ng generate --help
-```
+---
 
-## Building
+## 🏃‍♂️ Quick Start
 
-To build the project run:
+### Frontend
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Run the development server:
+   ```bash
+   ng serve
+   ```
+   Access the app at `http://localhost:4200/`.
 
-```bash
-ng build
-```
+### Backend
+1. Navigate to the backend folder:
+   ```bash
+   cd backend
+   ```
+2. Run the .NET API:
+   ```bash
+   dotnet run
+   ```
+   The API will be available at `http://localhost:5000` (Swagger at `/swagger`).
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## 📂 Project Structure
 
-### Backend Development
+- **`/src`**: Angular frontend (Components, Services, Reactive Signals)
+- **`/backend`**: .NET Web API (EPPlus, Audit Logic, PDF Service)
+- **`/docs`**: Project documentation (PRD, Technical Design)
 
-To run the backend API locally:
+## 📄 Documentation
 
-```bash
-cd backend
-dotnet run
-```
-
-The API will be available at `http://localhost:5000` with Swagger documentation at `http://localhost:5000/swagger`.
-
-For more details, see [backend/README.md](backend/README.md).
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- [Product Requirements (PRD)](docs/PRD.md) - Detailed feature specifications.
+- [Technical Design](docs/TechnicalDesign.md) - Architecture, data models, and implementation details.
