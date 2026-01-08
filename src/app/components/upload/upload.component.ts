@@ -17,6 +17,32 @@ import { fromApiGridRows } from '../../utils/data-transform.utils';
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">Upload Excel Template</h2>
       
+      <!-- Download Example Template Section -->
+      <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div class="flex items-start gap-3 mb-3">
+          <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div class="flex-1">
+            <p class="text-sm font-medium text-blue-900 mb-1">
+              Please use our example template format
+            </p>
+            <p class="text-xs text-blue-700">
+              Download the template below to ensure your Excel file meets our specific requirements for columns, data types, and formulas.
+            </p>
+          </div>
+        </div>
+        <button
+          (click)="downloadExampleTemplate($event)"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 shadow-sm"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Download Example Template
+        </button>
+      </div>
+
       <!-- Drag and Drop Zone -->
       <div
         (drop)="onDrop($event)"
@@ -55,19 +81,6 @@ import { fromApiGridRows } from '../../utils/data-transform.utils';
           (change)="onFileSelected($event)"
           class="hidden"
         />
-      </div>
-
-      <!-- Download Example Template Button -->
-      <div class="mt-4 flex justify-center">
-        <button
-          (click)="downloadExampleTemplate($event)"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors duration-200"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          Download Example Template
-        </button>
       </div>
     </div>
   `,
@@ -164,7 +177,7 @@ export class UploadComponent {
 
     // Create a temporary link to trigger the download
     const link = document.createElement('a');
-    link.href = '/testbook.xlsx';
+    link.href = 'testbook.xlsx';
     link.download = 'testbook.xlsx';
     document.body.appendChild(link);
     link.click();

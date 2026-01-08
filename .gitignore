@@ -68,6 +68,7 @@ artifacts/
 _ReSharper*/
 *.[Rr]e[Ss]harper
 *.DotSettings.user
+[Pp]ublish/
 .vs/
 .vscode/
 !.vscode/settings.json
