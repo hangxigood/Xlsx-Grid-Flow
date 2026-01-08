@@ -63,11 +63,11 @@ import { StateService } from '../../services/state.service';
           <app-toolbar />
 
           <!-- Grid and Metadata Inspector -->
-          <div class="flex items-start gap-4 mb-6">
-            <div class="flex-1">
+          <div class="grid-inspector-container">
+            <div class="grid-container">
               <app-grid-wrapper (cellSelected)="onCellSelected($event)" />
             </div>
-            <div class="w-80">
+            <div class="inspector-container">
               <app-metadata-inspector [cellInfo]="selectedCell()" />
             </div>
           </div>
