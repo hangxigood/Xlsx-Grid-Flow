@@ -12,14 +12,6 @@ The application is built as a **Single Page Application (SPA)** with the followi
   - **Upload Section**: File upload interface with drag-drop support and example template download
   - **Grid Section**: Interactive data grid that displays example data by default
 
-### 1.2 TailwindCSS Configuration
-TailwindCSS is integrated into the Angular project with the following setup:
-- **Installation**: `tailwindcss`, `postcss`, `autoprefixer` as dev dependencies
-- **Configuration File**: `tailwind.config.js` configured to scan Angular component files
-- **Content Paths**: Includes `src/**/*.{html,ts}` to detect utility classes
-- **Custom Theme**: Extended with project-specific colors, spacing, and component styles
-- **JIT Mode**: Just-In-Time compilation enabled for optimal build performance
-
 ## 2. Core Data Models
 
 ### 2.1 Workspace Schema (`Template`)
@@ -126,8 +118,7 @@ The system parses the string values in Row 1 to determine column logic.
    - Example: `Total (ReadOnly)`, `Status (ReadOnly)`, `Calculated (formula)`
    - **Formula columns tagged with (formula) are read-only** since they contain calculated values
 3. **Implicit Logic**: 
-   - If no tag is present, the system auto-detects the type from the first data row (Row 2) and defaults to `editable: true`.
-   - **Empty First Row Fallback**: If the first data row is empty, the column defaults to `text`.
+   - If no tag is present, the column defaults to `text` and `editable: true`.
    - Tags are stripped from the final `headerName` displayed in the web UI.
 
 ### 3.3 Mapping Table
@@ -175,7 +166,7 @@ The application uses a **dual-calculation strategy** for formulas: client-side f
 - **Execution Flow**:
   1. User saves changes (editable cells only)
   2. Backend receives updated data
-  3. `FormulaService.RecalculateFormulas()` rebuilds an in-memory Excel worksheet
+  3. `FormulaService.RecalculateFormulas()` rebuilds an in-memory Excel worksheet // TODO: performance optimization by only recalculating changed cells
   4. EPPlus calculates all formulas independently
   5. Results are stored in the session snapshot
   6. Audit log records **both** user edits AND formula result changes
@@ -197,10 +188,118 @@ The application uses a **dual-calculation strategy** for formulas: client-side f
 5. **Grid Refresh**: The grid displays updated calculated values
 6. **Save to Backend**: Backend independently recalculates formulas and validates results
 
-#### 4.2.5 Row Identity & Coordinate Mapping
-* **Persistent Identity**: The system relies on persistent `rowId`s that correspond to Excel's 1-based row numbering (starting at `rowId: 2` for the first data row).
-* **Identity Preservation**: Services must preserve original `rowId`s during all data transformations (e.g., when retrieving calculated data from HyperFormula), rather than regenerating sequential IDs.
-* **Coordinate Mapping**: `FormulaService` explicitly maps persistent `rowId`s to/from HyperFormula's internal 0-based row indices. Services never assume that `rowId` equals the array index.
+#### 4.2.5 Coordinate Systems & Data Flow
+
+The system operates with **three different coordinate systems** that must be carefully mapped during data transformations:
+
+##### Excel Coordinate System (1-based)
+- **Row Numbering**: Row 1 = Headers, Row 2 = First data row, Row 3 = Second data row, etc.
+- **Column Naming**: A, B, C, ... Z, AA, AB, ...
+- **Cell References**: "B4" means Column B, Row 4
+- **Usage**: 
+  - Original Excel file structure
+  - Backend `FormulaService.cs` when rebuilding worksheets with EPPlus
+  - Cell references in audit logs (e.g., "B4")
+  - Merged cell ranges (`MergedCellDto` uses 1-based coordinates)
+
+##### AG-Grid Coordinate System (Array-based with rowId)
+- **Row Identity**: Each row has a persistent `rowId` property that matches the Excel row number (e.g., `rowId: 2` for first data row)
+- **Data Structure**: Flat objects `{ rowId: 2, A: "value", B: 123 }`
+- **Array Storage**: Rows stored in arrays, but **array index ≠ rowId**
+  - Example: `rowData[0]` might have `rowId: 2`, `rowData[1]` might have `rowId: 3`
+- **Column Access**: Direct property access by field name (e.g., `row.A`, `row.B`)
+- **Usage**:
+  - Frontend `StateService` stores data in this format
+  - AG-Grid binds directly to these flat row objects
+  - User interactions reference cells by `(rowId, field)` pairs
+
+##### HyperFormula Coordinate System (0-based 2D Array)
+- **Row Numbering**: Row 0 = Headers, Row 1 = First data row, Row 2 = Second data row, etc.
+- **Column Numbering**: 0-based indices (0 = A, 1 = B, 2 = C, ...)
+- **Cell Coordinates**: `{ sheet: 0, col: 1, row: 2 }` means Column B, third row (second data row)
+- **Data Structure**: 2D array `[[headers], [row1], [row2], ...]`
+- **Usage**:
+  - Frontend `FormulaService` internal calculations
+  - HyperFormula API calls (`setCellContents`, `getCellValue`, etc.)
+
+##### Coordinate Mapping Rules
+
+**Excel ↔ AG-Grid:**
+```typescript
+// Excel Row 4 → AG-Grid rowId
+rowId = excelRow; // rowId: 4
+
+// Excel Column "B" → AG-Grid field
+field = "B"; // Direct mapping
+```
+
+**AG-Grid ↔ HyperFormula:**
+```typescript
+// AG-Grid rowId → HyperFormula row index
+// Must find array position first, then add 1 for header row
+const arrayIndex = rowData.findIndex(row => row.rowId === rowId);
+const hfRow = arrayIndex + 1; // +1 because HyperFormula row 0 is headers
+
+// AG-Grid field "B" → HyperFormula column index
+const hfCol = columnDefs.findIndex(col => col.field === "B"); // 0-based
+```
+
+**Excel ↔ HyperFormula:**
+```typescript
+// Excel Row 4 → HyperFormula row
+hfRow = excelRow - 1; // Row 4 → index 3 (accounting for header at row 0)
+
+// Excel Column "B" → HyperFormula column
+// B is the 2nd column, so index 1
+hfCol = columnLetterToIndex("B") - 1; // 1-based letter → 0-based index
+```
+
+##### Critical Data Flow Example
+
+When a user edits cell "B4" in the grid:
+
+1. **AG-Grid Event**: `{ data: { rowId: 4 }, colDef: { field: "B" }, newValue: 20 }`
+2. **StateService**: Receives `(rowId: 4, field: "B", value: 20)`
+3. **FormulaService.updateCell()**:
+   - Finds array index: `arrayIndex = rowData.findIndex(r => r.rowId === 4)` → might be `2`
+   - Maps to HyperFormula: `hfRow = arrayIndex + 1` → `3`
+   - Maps column: `hfCol = columnDefs.findIndex(c => c.field === "B")` → `1`
+   - Updates: `setCellContents({ sheet: 0, col: 1, row: 3 }, 20)`
+4. **Backend Save**:
+   - Receives: `{ rowId: 4, cells: { B: 20 } }`
+   - Rebuilds Excel: Writes to `worksheet.Cells[4, 2]` (1-based)
+   - Audit log: Records change to "B4"
+
+**Key Principle**: The system uses **persistent `rowId` properties** (matching Excel row numbers) as the source of truth for row identity, and **never assumes array index equals rowId**. All coordinate transformations are handled by the **`CoordinateMapper` utility class** (available in both TypeScript and C#), which centralizes all conversion logic and provides validation to catch coordinate bugs early.
+
+##### Coordinate Mapper Utilities
+
+To manage this complexity, the system provides centralized coordinate mapping utilities:
+
+**Frontend**: `src/app/utils/coordinate-mapper.utils.ts`
+- `CoordinateMapper` - Static utility class for all coordinate conversions
+- `RowIndexCache` - Performance-optimized cache for bulk operations
+
+**Backend**: `backend/Utilities/CoordinateMapper.cs`
+- `CoordinateMapper` - Static utility class with validation helpers
+- Provides type-safe coordinate records (`ExcelCoordinate`, `GridCoordinate`, `EPPlusCoordinate`)
+
+**Usage Example**:
+```typescript
+// Frontend: Convert AG-Grid event to HyperFormula coordinate
+const hfCoord = CoordinateMapper.agGridToHyperFormula(
+    { rowId: 4, field: "B" },
+    rowData,
+    columnDefs
+);
+// Returns: { sheet: 0, row: 3, col: 1 }
+```
+
+```csharp
+// Backend: Parse audit log cell reference
+var coord = CoordinateMapper.ParseCellReference("B4");
+// Returns: ExcelCoordinate(Row: 4, Column: "B")
+```
 
 ### 4.3 State Management (Stateless Flow)
 The application operates in-memory to maintain data privacy.

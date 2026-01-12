@@ -92,7 +92,7 @@ public class ExcelService
             // If type not specified, infer from first data row
             if (dataType == null)
             {
-                dataType = InferDataType(worksheet, col);
+                dataType = DataType.Text;
             }
 
             columnDefs.Add(new ColumnDefDto
@@ -117,8 +117,8 @@ public class ExcelService
 
         if (!match.Success)
         {
-            // No tag found, default to editable with auto-detection
-            return (header, null, true);
+            // No tag found, default to text
+            return (header, DataType.Text, true);
         }
 
         var cleanName = match.Groups[1].Value.Trim();
@@ -145,41 +145,6 @@ public class ExcelService
         bool editable = dataType != DataType.Formula;
 
         return (cleanName, dataType, editable);
-    }
-
-    /// <summary>
-    /// Infers data type from the first data row (Row 2)
-    /// </summary>
-    private DataType InferDataType(ExcelWorksheet worksheet, int col)
-    {
-        if (worksheet.Dimension.End.Row < 2)
-        {
-            return DataType.Text; // No data rows, default to text
-        }
-
-        var cell = worksheet.Cells[2, col];
-        
-        // Check if it's a formula
-        if (!string.IsNullOrEmpty(cell.Formula))
-        {
-            return DataType.Formula;
-        }
-
-        var value = cell.Value;
-
-        if (value == null)
-        {
-            return DataType.Text;
-        }
-
-        // Type inference based on EPPlus value type
-        return value switch
-        {
-            double or int or long or decimal or float => DataType.Number,
-            DateTime => DataType.Date,
-            bool => DataType.Boolean,
-            _ => DataType.Text
-        };
     }
 
     /// <summary>
