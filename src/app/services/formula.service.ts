@@ -1,10 +1,7 @@
-/**
- * Formula Service - Client-side formula calculation using HyperFormula
- */
-
 import { Injectable } from '@angular/core';
 import { HyperFormula, ConfigParams } from 'hyperformula';
 import { GridRow, ColumnDef } from '../models/grid-types';
+import { CoordinateMapper } from '../utils/coordinate-mapper.utils';
 
 @Injectable({
     providedIn: 'root',
@@ -43,28 +40,20 @@ export class FormulaService {
             return;
         }
 
-        // Find the array index of the row with this rowId
-        const arrayIndex = this.originalRowData.findIndex(row => row.rowId === rowId);
-        if (arrayIndex === -1) {
-            console.warn(`Row with rowId ${rowId} not found`);
-            return;
-        }
+        // Use CoordinateMapper to convert AG-Grid coordinates to HyperFormula
+        const hfCoord = CoordinateMapper.agGridToHyperFormula(
+            { rowId, field: columnField },
+            this.originalRowData,
+            columnDefs
+        );
 
-        // Convert column field (e.g., "A", "B") to column index
-        const colIndex = columnDefs.findIndex(col => col.field === columnField);
-
-        if (colIndex === -1) {
-            console.warn(`Column ${columnField} not found`);
+        if (!hfCoord) {
+            console.warn(`Failed to map coordinates for rowId ${rowId}, field ${columnField}`);
             return;
         }
 
         // Update the cell in HyperFormula
-        // arrayIndex is 0-based, but HyperFormula row 0 is headers, so add 1
-        const hfRow = arrayIndex + 1;
-        this.hfInstance.setCellContents(
-            { sheet: 0, col: colIndex, row: hfRow },
-            value
-        );
+        this.hfInstance.setCellContents(hfCoord, value);
     }
 
     /**

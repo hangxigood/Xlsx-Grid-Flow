@@ -234,16 +234,14 @@ public class SessionService
     /// </summary>
     private (int rowId, string field) ParseCellReference(string cellRef)
     {
-        var match = System.Text.RegularExpressions.Regex.Match(cellRef, @"^([A-Z]+)(\d+)$");
-        if (!match.Success)
+        var coord = Utilities.CoordinateMapper.ParseCellReference(cellRef);
+        
+        if (coord == null)
         {
             throw new ArgumentException($"Invalid cell reference: {cellRef}");
         }
 
-        var field = match.Groups[1].Value;
-        var rowId = int.Parse(match.Groups[2].Value);
-
-        return (rowId, field);
+        return (coord.Row, coord.Column);
     }
 
     /// <summary>
